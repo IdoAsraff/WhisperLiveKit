@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wlk-qwen
+  namespace: atero
+  labels:
+    app: wlk-qwen
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wlk-qwen
+  template:
+    metadata:
+      labels:
+        app: wlk-qwen
+    spec:
+      containers:
+      - name: wlk
+        image: registry.gitlab.com/crusoeenergy/atero/atero-um/wlk-qwen3:v1
+        ports:
+        - containerPort: 8000
+          name: http
+        resources:
+          requests:
+            cpu: "4"
+            nvidia.com/gpu: "1"
+          limits:
+            nvidia.com/gpu: "1"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 180
+          periodSeconds: 30
+          timeoutSeconds: 5
+      imagePullSecrets:
+      - name: gitlab-registry
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wlk-qwen
+  namespace: atero
+  labels:
+    app: wlk-qwen
+spec:
+  selector:
+    app: wlk-qwen
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: http
