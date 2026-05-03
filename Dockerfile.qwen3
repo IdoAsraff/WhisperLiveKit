@@ -49,7 +49,7 @@ RUN apt-get update && \
 COPY --from=uvbin /uv /uvx /bin/
 
 # Copy the Python version
-COPY --from=builder-gpu --chown=python:python /python /python
+COPY --from=builder-gpu /python /python
 
 # Copy the virtual environment with all dependencies installed
 COPY --from=builder-gpu /app/.venv /app/.venv
