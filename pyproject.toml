@@ -48,7 +48,7 @@ voxtral-mlx = [
     "mistral-common[audio]",
 ]
 qwen3 = [
-    "transformers>=4.50.0",
+    "transformers>=4.57.0",
     "accelerate>=0.12",
 ]
 voxtral-hf = [
