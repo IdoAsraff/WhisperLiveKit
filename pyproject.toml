@@ -50,6 +50,7 @@ voxtral-mlx = [
 qwen3 = [
     "transformers>=4.57.0",
     "accelerate>=0.12",
+    "qwen-asr>=0.0.6",
 ]
 voxtral-hf = [
     "transformers>=5.2.0; python_version >= '3.10'",
@@ -89,6 +90,10 @@ conflicts = [
     [
         { extra = "voxtral-hf" },
         { extra = "diarization-sortformer" },
+    ],
+    [
+        { extra = "qwen3" },
+        { extra = "voxtral-hf" },
     ],
 ]
 
