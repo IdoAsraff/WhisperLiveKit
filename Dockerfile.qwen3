@@ -63,9 +63,8 @@ ENV HF_HOME=/app/.cache/huggingface
 
 # Pre-download the Qwen3-ASR model into the image
 RUN python -c "\
-from transformers import AutoModelForCausalLM, AutoProcessor; \
-AutoProcessor.from_pretrained('Qwen/Qwen3-ASR-1.7B', trust_remote_code=True); \
-AutoModelForCausalLM.from_pretrained('Qwen/Qwen3-ASR-1.7B', trust_remote_code=True)"
+from huggingface_hub import snapshot_download; \
+snapshot_download('Qwen/Qwen3-ASR-1.7B')"
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/')" || exit 1
