@@ -98,6 +98,19 @@ async def websocket_endpoint(websocket: WebSocket):
     results_generator = await audio_processor.create_tasks()
     websocket_task = asyncio.create_task(handle_websocket_results(websocket, results_generator, diff_tracker))
 
+    async def send_final_transcripts():
+        """Send final_transcript messages from the queue directly to the WebSocket."""
+        try:
+            while True:
+                text = await audio_processor.final_transcript_queue.get()
+                await websocket.send_json({"type": "final_transcript", "text": text})
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.debug(f"Final transcript sender stopped: {e}")
+
+    final_transcript_task = asyncio.create_task(send_final_transcripts())
+
     try:
         while True:
             message = await websocket.receive_bytes()
@@ -113,6 +126,8 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.error(f"Unexpected error in websocket_endpoint main loop: {e}", exc_info=True)
     finally:
         logger.info("Cleaning up WebSocket endpoint...")
+        if not final_transcript_task.done():
+            final_transcript_task.cancel()
         if not websocket_task.done():
             websocket_task.cancel()
         try:

@@ -22,6 +22,9 @@ class WhisperLiveKitConfig:
     target_language: str = ""
     vac: bool = True
     vac_chunk_size: float = 0.04
+    vac_min_silence_ms: int = 100
+    vac_threshold: float = 0.5
+    vac_speech_pad_ms: int = 30
     log_level: str = "DEBUG"
     ssl_certfile: Optional[str] = None
     ssl_keyfile: Optional[str] = None
@@ -85,6 +88,8 @@ class WhisperLiveKitConfig:
             self.backend_policy = "simulstreaming"
         elif self.backend_policy == "2":
             self.backend_policy = "localagreement"
+        elif self.backend_policy == "3":
+            self.backend_policy = "segment"
 
     # ------------------------------------------------------------------
     # Factory helpers

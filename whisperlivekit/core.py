@@ -163,6 +163,21 @@ class TranscriptionEngine:
                 from whisperlivekit.warmup import warmup_asr
                 warmup_asr(self.asr, config.warmup_file)
                 logger.info("Using Qwen3-ASR backend with LocalAgreement policy")
+            elif config.backend_policy == "segment":
+                whisperstreaming_params = {
+                    "buffer_trimming": config.buffer_trimming,
+                    "confidence_validation": config.confidence_validation,
+                    "buffer_trimming_sec": config.buffer_trimming_sec,
+                }
+                self.asr = backend_factory(
+                    backend=config.backend,
+                    **transcription_common_params,
+                    **whisperstreaming_params,
+                )
+                logger.info(
+                    "Using Segment-and-Transcribe policy with %s backend",
+                    getattr(self.asr, "backend_choice", self.asr.__class__.__name__),
+                )
             elif config.backend_policy == "simulstreaming":
                 simulstreaming_params = {
                     "disable_fast_encoder": config.disable_fast_encoder,
@@ -271,6 +286,9 @@ def online_factory(args, asr, language=None):
     if backend == "voxtral":
         from whisperlivekit.voxtral_hf_streaming import VoxtralHFStreamingOnlineProcessor
         return VoxtralHFStreamingOnlineProcessor(asr)
+    if args.backend_policy == "segment":
+        from whisperlivekit.segment_transcribe import SegmentTranscribeProcessor
+        return SegmentTranscribeProcessor(asr)
     if backend == "qwen3":
         return OnlineASRProcessor(asr)
     if args.backend_policy == "simulstreaming":

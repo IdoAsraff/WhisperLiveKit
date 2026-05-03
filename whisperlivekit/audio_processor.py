@@ -83,8 +83,12 @@ class AudioProcessor:
         self.current_silence: Optional[Silence] = None
         self.state: State = State()
         self.lock: asyncio.Lock = asyncio.Lock()
+        self.final_transcript_queue: asyncio.Queue = asyncio.Queue()
         self.sep: str = " "  # Default separator
         self.last_response_content: FrontData = FrontData()
+        # Lookback buffer: keeps last N ms of silence audio so word onsets aren't clipped
+        self._silence_lookback_ms = 600
+        self._silence_lookback = np.array([], dtype=np.float32)
 
         self.tokens_alignment: TokensAlignment = TokensAlignment(self.state, self.args, self.sep)
         self.beg_loop: Optional[float] = None
@@ -94,11 +98,16 @@ class AudioProcessor:
         self.vac: Optional[FixedVADIterator] = None
 
         if self.args.vac:
+            vac_kwargs = {
+                "min_silence_duration_ms": getattr(self.args, "vac_min_silence_ms", 100),
+                "threshold": getattr(self.args, "vac_threshold", 0.5),
+                "speech_pad_ms": getattr(self.args, "vac_speech_pad_ms", 30),
+            }
             if models.vac_session is not None:
                 vac_model = OnnxWrapper(session=models.vac_session)
-                self.vac = FixedVADIterator(vac_model)
+                self.vac = FixedVADIterator(vac_model, **vac_kwargs)
             else:
-                self.vac = FixedVADIterator(load_jit_vad())
+                self.vac = FixedVADIterator(load_jit_vad(), **vac_kwargs)
         self.ffmpeg_manager: Optional[FFmpegManager] = None
         self.ffmpeg_reader_task: Optional[asyncio.Task] = None
         self._ffmpeg_error: Optional[str] = None
@@ -299,6 +308,9 @@ class AudioProcessor:
                     self.state.end_buffer = max(self.state.end_buffer, end_time)
                     self.state.new_tokens.extend(final_tokens)
                     self.state.new_tokens_buffer = _buffer_transcript
+                text = self.sep.join(t.text for t in final_tokens).strip()
+                if text:
+                    await self.final_transcript_queue.put(text)
                 if self.translation_queue:
                     for token in final_tokens:
                         await self.translation_queue.put(token)
@@ -398,6 +410,11 @@ class AudioProcessor:
                     self.state.end_buffer = max(candidate_end_times)
                     self.state.new_tokens.extend(new_tokens)
                     self.state.new_tokens_buffer = _buffer_transcript
+
+                if new_tokens:
+                    text = self.sep.join(t.text for t in new_tokens).strip()
+                    if text:
+                        await self.final_transcript_queue.put(text)
 
                 if self.translation_queue:
                     for token in new_tokens:
@@ -747,6 +764,10 @@ class AudioProcessor:
 
         if res is not None:
             if "start" in res and self.current_silence:
+                # Prepend lookback audio so word onsets aren't clipped
+                if self._silence_lookback.size > 0:
+                    await self._enqueue_active_audio(self._silence_lookback)
+                    self._silence_lookback = np.array([], dtype=np.float32)
                 await self._end_silence(at_sample=res.get("start"))
 
             if "end" in res and not self.current_silence:
@@ -759,6 +780,12 @@ class AudioProcessor:
 
         if not self.current_silence:
             await self._enqueue_active_audio(pcm_array)
+        else:
+            # During silence: keep rolling lookback buffer
+            self._silence_lookback = np.append(self._silence_lookback, pcm_array)
+            max_samples = int(self._silence_lookback_ms * self.sample_rate / 1000)
+            if len(self._silence_lookback) > max_samples:
+                self._silence_lookback = self._silence_lookback[-max_samples:]
 
         self.total_pcm_samples = chunk_sample_end
 

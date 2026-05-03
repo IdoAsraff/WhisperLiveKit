@@ -140,8 +140,8 @@ def parse_args():
         "--backend-policy",
         type=str,
         default="simulstreaming",
-        choices=["1", "2", "simulstreaming", "localagreement"],
-        help="Select the streaming policy: 1 or 'simulstreaming' for AlignAtt, 2 or 'localagreement' for LocalAgreement.",
+        choices=["1", "2", "3", "simulstreaming", "localagreement", "segment"],
+        help="Select the streaming policy: 1/'simulstreaming' for AlignAtt, 2/'localagreement' for LocalAgreement, 3/'segment' for Segment-and-Transcribe.",
     )
     parser.add_argument(
         "--backend",
@@ -158,6 +158,18 @@ def parse_args():
     )
     parser.add_argument(
         "--vac-chunk-size", type=float, default=0.04, help="VAC sample size in seconds."
+    )
+    parser.add_argument(
+        "--vac-min-silence-ms", type=int, default=100, dest="vac_min_silence_ms",
+        help="VAC minimum silence duration in ms before ending speech (default: 100)."
+    )
+    parser.add_argument(
+        "--vac-threshold", type=float, default=0.5, dest="vac_threshold",
+        help="VAC speech probability threshold (default: 0.5)."
+    )
+    parser.add_argument(
+        "--vac-speech-pad-ms", type=int, default=30, dest="vac_speech_pad_ms",
+        help="VAC speech padding in ms on each side (default: 30)."
     )
 
     parser.add_argument(
