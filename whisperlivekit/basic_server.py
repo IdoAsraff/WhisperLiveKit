@@ -67,6 +67,7 @@ async def handle_websocket_results(websocket, results_generator, diff_tracker=No
         logger.exception(f"Error in WebSocket results handler: {e}")
 
 
+@app.websocket("/v1/realtime")
 @app.websocket("/asr")
 async def websocket_endpoint(websocket: WebSocket):
     global transcription_engine
