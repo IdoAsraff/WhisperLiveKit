@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import sys
 from typing import List, Optional
@@ -154,14 +155,27 @@ class Qwen3ASR(ASRBase):
         else:
             dtype, device = torch.float32, "cpu"
 
-        logger.info(f"Loading Qwen3-ASR: {model_id} ({dtype}, {device})")
-        model = Qwen3ASRModel.from_pretrained(
-            model_id,
-            forced_aligner="Qwen/Qwen3-ForcedAligner-0.6B",
-            forced_aligner_kwargs=dict(dtype=dtype, device_map=device),
-            dtype=dtype,
-            device_map=device,
-        )
+        use_vllm = os.environ.get("WLK_USE_VLLM", "").lower() in ("1", "true", "yes")
+
+        if use_vllm:
+            logger.info(f"Loading Qwen3-ASR (vLLM): {model_id}")
+            model = Qwen3ASRModel.LLM(
+                model=model_id,
+                forced_aligner="Qwen/Qwen3-ForcedAligner-0.6B",
+                forced_aligner_kwargs=dict(dtype=dtype, device_map=device),
+                gpu_memory_utilization=0.8,
+                dtype=str(dtype).replace("torch.", ""),
+                disable_log_stats=True,
+            )
+        else:
+            logger.info(f"Loading Qwen3-ASR: {model_id} ({dtype}, {device})")
+            model = Qwen3ASRModel.from_pretrained(
+                model_id,
+                forced_aligner="Qwen/Qwen3-ForcedAligner-0.6B",
+                forced_aligner_kwargs=dict(dtype=dtype, device_map=device),
+                dtype=dtype,
+                device_map=device,
+            )
         logger.info("Qwen3-ASR loaded with ForcedAligner")
         return model
 

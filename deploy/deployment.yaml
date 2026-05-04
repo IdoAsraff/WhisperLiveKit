@@ -6,7 +6,7 @@ metadata:
   labels:
     app: wlk-qwen
 spec:
-  replicas: 1
+  replicas: 8
   selector:
     matchLabels:
       app: wlk-qwen
@@ -17,7 +17,10 @@ spec:
     spec:
       containers:
       - name: wlk
-        image: registry.gitlab.com/crusoeenergy/atero/atero-um/wlk-qwen3:v1
+        image: registry.gitlab.com/crusoeenergy/atero/atero-um/wlk-qwen3:v2
+        env:
+        - name: WLK_USE_VLLM
+          value: "true"
         ports:
         - containerPort: 8000
           name: http
@@ -31,14 +34,14 @@ spec:
           httpGet:
             path: /
             port: 8000
-          initialDelaySeconds: 120
+          initialDelaySeconds: 240
           periodSeconds: 10
           timeoutSeconds: 5
         livenessProbe:
           httpGet:
             path: /
             port: 8000
-          initialDelaySeconds: 180
+          initialDelaySeconds: 300
           periodSeconds: 30
           timeoutSeconds: 5
       imagePullSecrets:

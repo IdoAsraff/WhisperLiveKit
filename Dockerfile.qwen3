@@ -42,7 +42,7 @@ WORKDIR /app
 
 RUN apt-get update && \
   apt-get install -y --no-install-recommends \
-  ffmpeg && \
+  ffmpeg gcc g++ && \
   rm -rf /var/lib/apt/lists/*
 
 # Copy UV binaries
@@ -61,12 +61,20 @@ ENV UV_PYTHON_DOWNLOADS=0
 # HuggingFace cache inside the image
 ENV HF_HOME=/app/.cache/huggingface
 
-# Pre-download the Qwen3-ASR model into the image
+# Install vLLM + flash-attn on top of the existing venv
+# (done in runtime stage to avoid uv lock conflicts — uv venvs don't include pip)
+RUN uv pip install --no-cache-dir "qwen-asr[vllm]"
+
+# Pre-download models into the image
 RUN python -c "\
 from huggingface_hub import snapshot_download; \
-snapshot_download('Qwen/Qwen3-ASR-1.7B')"
+snapshot_download('Qwen/Qwen3-ASR-1.7B'); \
+snapshot_download('Qwen/Qwen3-ForcedAligner-0.6B')"
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+# Enable vLLM backend by default
+ENV WLK_USE_VLLM=true
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=300s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/')" || exit 1
 
 ENTRYPOINT ["wlk", "--host", "0.0.0.0", "--port", "8000", \
