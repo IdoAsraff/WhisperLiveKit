@@ -56,10 +56,10 @@ class CrusoeSpeechStream(stt.RecognizeStream):
         self._api_key = api_key
         self._model = model
 
-    def _emit_transcript(self, text: str) -> None:
+    def _emit_transcript(self, text: str, language: str = "en") -> None:
         self._event_ch.send_nowait(stt.SpeechEvent(
             type=stt.SpeechEventType.FINAL_TRANSCRIPT,
-            alternatives=[stt.SpeechData(text=text, language="auto")],
+            alternatives=[stt.SpeechData(text=text, language=language)],
         ))
 
     async def _get_ephemeral_token(self) -> str:
@@ -168,7 +168,8 @@ class CrusoeSpeechStream(stt.RecognizeStream):
                     if data.get("type") == "final_transcript":
                         text = data.get("text", "").strip()
                         if text:
-                            self._emit_transcript(text)
+                            lang = data.get("language", "en")
+                            self._emit_transcript(text, lang)
 
             tasks = [
                 asyncio.create_task(send_task()),

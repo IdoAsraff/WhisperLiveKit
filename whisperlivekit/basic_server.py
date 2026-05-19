@@ -103,8 +103,11 @@ async def websocket_endpoint(websocket: WebSocket):
         """Send final_transcript messages from the queue directly to the WebSocket."""
         try:
             while True:
-                text = await audio_processor.final_transcript_queue.get()
-                await websocket.send_json({"type": "final_transcript", "text": text})
+                text, language = await audio_processor.final_transcript_queue.get()
+                msg = {"type": "final_transcript", "text": text}
+                if language:
+                    msg["language"] = language
+                await websocket.send_json(msg)
         except asyncio.CancelledError:
             pass
         except Exception as e:

@@ -310,7 +310,8 @@ class AudioProcessor:
                     self.state.new_tokens_buffer = _buffer_transcript
                 text = self.sep.join(t.text for t in final_tokens).strip()
                 if text:
-                    await self.final_transcript_queue.put(text)
+                    lang = next((t.detected_language for t in final_tokens if t.detected_language), None)
+                    await self.final_transcript_queue.put((text, lang))
                 if self.translation_queue:
                     for token in final_tokens:
                         await self.translation_queue.put(token)
@@ -414,7 +415,8 @@ class AudioProcessor:
                 if new_tokens:
                     text = self.sep.join(t.text for t in new_tokens).strip()
                     if text:
-                        await self.final_transcript_queue.put(text)
+                        lang = next((t.detected_language for t in new_tokens if t.detected_language), None)
+                        await self.final_transcript_queue.put((text, lang))
 
                 if self.translation_queue:
                     for token in new_tokens:
