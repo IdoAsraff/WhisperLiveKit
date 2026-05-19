@@ -1,12 +1,5 @@
-"""WebSocket STT plugin that streams audio to WhisperLiveKit.
-
-Streams all audio frames as raw PCM to a WLK WebSocket endpoint
-and emits FINAL_TRANSCRIPT events when the server sends
-{"type": "final_transcript", "text": "..."} messages.
-
-Supports two modes:
-  - Direct: ws://pod-ip:8000/v1/realtime (no auth)
-  - Gateway: https://gateway/v1/realtime (with bearer token -> ephemeral token)
+"""
+WebSocket STT plugin that streams audio.
 """
 
 from __future__ import annotations
@@ -38,24 +31,24 @@ class STT(stt.STT):
 
     @property
     def model(self):
-        return self._model_name or "wlk-qwen3"
+        return self._model_name
 
     @property
     def provider(self):
-        return "wlk-websocket"
+        return "Crusoe AI"
 
     async def _recognize_impl(self, buffer, *, language=NOT_GIVEN, conn_options=DEFAULT_API_CONNECT_OPTIONS):
         raise NotImplementedError("use stream()")
 
     def stream(self, *, language=NOT_GIVEN, conn_options: APIConnectOptions = DEFAULT_API_CONNECT_OPTIONS):
-        return WLKSpeechStream(
+        return CrusoeSpeechStream(
             stt=self, conn_options=conn_options, ws_url=self._ws_url,
             sample_rate=self._sample_rate, api_key=self._api_key,
             model=self._model_name,
         )
 
 
-class WLKSpeechStream(stt.RecognizeStream):
+class CrusoeSpeechStream(stt.RecognizeStream):
     def __init__(self, *, stt, conn_options, ws_url, sample_rate, api_key, model):
         super().__init__(stt=stt, conn_options=conn_options, sample_rate=sample_rate)
         self._ws_url = ws_url
@@ -83,6 +76,7 @@ class WLKSpeechStream(stt.RecognizeStream):
             async with session.post(
                 auth_url,
                 headers={"Authorization": f"Bearer {self._api_key}"},
+                ssl=False,
             ) as resp:
                 resp.raise_for_status()
                 data = await resp.json()
@@ -116,7 +110,15 @@ class WLKSpeechStream(stt.RecognizeStream):
         closing_ws = False
         ws_url = await self._build_ws_url()
 
-        async with websockets.connect(ws_url) as ws:
+        ws_kwargs = {}
+        if ws_url.startswith("wss://"):
+            import ssl as _ssl
+            ctx = _ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = _ssl.CERT_NONE
+            ws_kwargs["ssl"] = ctx
+
+        async with websockets.connect(ws_url, ping_interval=None, ping_timeout=None, **ws_kwargs) as ws:
             config_msg = await ws.recv()
             json.loads(config_msg)
 
